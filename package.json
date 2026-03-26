@@ -5,9 +5,14 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "prepare": "husky",
+    "check:dashboard": "pnpm --filter dashboard build",
+    "check:rust": "cargo check -p core-api -p proxy-server -p worker",
+    "check": "pnpm check:dashboard && pnpm check:rust"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "turbo": "^2.0.0"
   }
 }

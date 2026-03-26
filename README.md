@@ -5,7 +5,7 @@
 <h1 align="center">Ruxy</h1>
 
 <p align="center">
-  Ruxy is a proxy operations platform built with Rust and Next.js for pool management, health checks, routing, and observability.
+  Ruxy is a proxy rotator and operations platform built with Rust and Next.js for pool management, health checks, routing, and observability.
 </p>
 
 ## Status
