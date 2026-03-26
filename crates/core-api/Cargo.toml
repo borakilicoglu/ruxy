@@ -5,10 +5,18 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+async-trait.workspace = true
 application = { path = "../application" }
+chrono.workspace = true
 domain = { path = "../domain" }
 infrastructure = { path = "../infrastructure" }
 anyhow.workspace = true
 axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
 tokio.workspace = true
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
 tracing.workspace = true
+uuid.workspace = true

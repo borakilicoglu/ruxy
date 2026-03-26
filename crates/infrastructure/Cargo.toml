@@ -5,10 +5,13 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+async-trait.workspace = true
 application = { path = "../application" }
+chrono.workspace = true
 domain = { path = "../domain" }
 shared = { path = "../shared" }
 anyhow.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+uuid.workspace = true

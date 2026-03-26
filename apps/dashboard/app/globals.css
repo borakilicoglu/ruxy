@@ -1,0 +1,58 @@
+@import "@heroui/react/styles";
+@import "tailwindcss";
+
+@theme inline {
+  --font-mono: var(--font-mono);
+}
+
+:root {
+  --bg: #090909;
+  --bg-elevated: #101010;
+  --bg-panel: #151515;
+  --bg-panel-soft: #1a1a1a;
+  --bg-input: #1b1b1b;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --text: #f3f3f3;
+  --muted: #9b9b9b;
+  --muted-strong: #c6c6c6;
+  --accent: #efefef;
+  --healthy: #43b049;
+  --degraded: #d0a232;
+  --unhealthy: #d05656;
+  --disabled: #767676;
+  --cooling-down: #5a79ff;
+  --unknown: #9b9b9b;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 12%),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.03), transparent 24%),
+    var(--bg);
+  font-family: var(--font-mono), monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+a,
+[role="button"],
+summary,
+select {
+  cursor: pointer;
+}
+
+input:disabled,
+button:disabled {
+  cursor: not-allowed;
+}

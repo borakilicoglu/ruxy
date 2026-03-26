@@ -1,29 +1,76 @@
 services:
   db:
     image: timescale/timescaledb:latest-pg16
+    container_name: ruxy-db
     ports:
       - "5432:5432"
     environment:
       POSTGRES_DB: ruxy
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ruxy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   core-api:
     build:
       context: .
       dockerfile: infra/docker/core-api.Dockerfile
+    container_name: ruxy-core-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/ruxy
+      CORE_API_PORT: 8001
+      RUST_LOG: info
+    ports:
+      - "8001:8001"
 
   proxy-server:
     build:
       context: .
       dockerfile: infra/docker/proxy-server.Dockerfile
+    container_name: ruxy-proxy-server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/ruxy
+      PROXY_SERVER_PORT: 8000
+      RUST_LOG: info
+    ports:
+      - "8000:8000"
 
   worker:
     build:
       context: .
       dockerfile: infra/docker/worker.Dockerfile
+    container_name: ruxy-worker
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/ruxy
+      RUST_LOG: info
 
   dashboard:
     build:
       context: .
       dockerfile: infra/docker/dashboard.Dockerfile
+    container_name: ruxy-dashboard
+    depends_on:
+      core-api:
+        condition: service_started
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://core-api:8001
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

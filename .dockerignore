@@ -1,0 +1,12 @@
+.git
+.turbo
+node_modules
+apps/dashboard/node_modules
+apps/dashboard/.next
+target
+dist
+.DS_Store
+**/.DS_Store
+coverage
+tmp
+*.log

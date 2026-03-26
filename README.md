@@ -4,17 +4,24 @@ Ruxy is a proxy rotation and proxy management platform built as a monorepo.
 
 ## Status
 
-- Phase 0 in progress
-- Initial repo skeleton and execution plan are in place
-- Rust toolchain is installed and the workspace passes `cargo check`
+- Local stack is running through `docker compose`
+- Dashboard, Core API, Proxy Server, Worker, and Postgres are wired together
+- Proxy CRUD, health cycles, routing selection, events, and metrics are working end to end
 
-## Workspace
+## Stack
 
 - `apps/dashboard`: Next.js admin dashboard
 - `crates/core-api`: Rust control plane API
 - `crates/proxy-server`: Rust data plane
 - `crates/worker`: background health and aggregation jobs
 - `crates/domain`, `crates/application`, `crates/infrastructure`, `crates/shared`: supporting workspace crates
+
+## Running services
+
+- Dashboard: `http://localhost:3000`
+- Core API: `http://localhost:8001`
+- Proxy Server: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
 
 ## Current docs
 
@@ -23,13 +30,20 @@ Ruxy is a proxy rotation and proxy management platform built as a monorepo.
 - [docs/api-contract-v1.md](./docs/api-contract-v1.md): first API contract draft
 - [docs/schema-v1.md](./docs/schema-v1.md): first database schema draft
 
-## Execution order
+## Current dashboard
 
-1. Phase 0: lock domain rules, contracts, schema, and bootstrap
-2. Phase 1: implement domain and application core
-3. Phase 2: add persistence and API
-4. Phase 3: add worker and dashboard MVP
-5. Phase 4: add proxy routing and observability
+System Metrics view from the current dashboard:
+
+![Ruxy System Metrics](./docs/assets/system-metrics-dashboard.png)
+
+## Current capabilities
+
+- Create, list, and delete proxies from the dashboard
+- Reject malformed hosts such as `host:port` in the `host` field
+- Run worker-based health cycles and persist proxy state
+- Select healthy proxies through the proxy server
+- Record routing events and request-level telemetry
+- View overview, logs, system metrics, and settings in the dashboard
 
 ## Local setup
 
@@ -40,16 +54,30 @@ source "$HOME/.cargo/env"
 cargo check
 ```
 
-Planned frontend setup:
+Frontend:
 
 ```bash
 pnpm install
 ```
 
-## Next milestone
+Full stack:
 
-The next implementation target is the application layer:
+```bash
+docker compose up --build
+```
 
-1. expand repository ports
-2. add proxy and health use-cases
-3. add in-memory adapters for fast tests
+Useful checks:
+
+```bash
+curl http://localhost:8001/api/proxies
+curl http://localhost:8001/api/health/summary
+curl http://localhost:8000/health
+```
+
+## Roadmap
+
+The next implementation targets are:
+
+1. tighten request forwarding behavior in `proxy-server`
+2. connect more dashboard surfaces to live telemetry
+3. add stricter validation and operational polish
