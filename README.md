@@ -2,9 +2,11 @@
   <img src="./docs/assets/ruxy-mark.svg" alt="Ruxy logo" width="140" height="140" />
 </p>
 
-# Ruxy
+<h1 align="center">Ruxy</h1>
 
-Ruxy is a proxy rotation and proxy management platform built as a monorepo.
+<p align="center">
+  Ruxy is a proxy operations platform built with Rust and Next.js for pool management, health checks, routing, and observability.
+</p>
 
 ## Status
 
