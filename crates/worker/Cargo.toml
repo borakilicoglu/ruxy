@@ -1,0 +1,13 @@
+[package]
+name = "worker"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+application = { path = "../application" }
+domain = { path = "../domain" }
+infrastructure = { path = "../infrastructure" }
+anyhow.workspace = true
+tokio.workspace = true
+tracing.workspace = true

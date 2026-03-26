@@ -1,0 +1,29 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ruxy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  core-api:
+    build:
+      context: .
+      dockerfile: infra/docker/core-api.Dockerfile
+
+  proxy-server:
+    build:
+      context: .
+      dockerfile: infra/docker/proxy-server.Dockerfile
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: infra/docker/dashboard.Dockerfile

@@ -1,0 +1,10 @@
+[package]
+name = "application"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+domain = { path = "../domain" }
+thiserror.workspace = true
+uuid.workspace = true

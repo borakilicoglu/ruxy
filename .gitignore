@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.next
+node_modules
+dist
+coverage
+target
+tmp
+.turbo
