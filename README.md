@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./docs/assets/ruxy-mark.svg" alt="Ruxy logo" width="140" height="140" />
+</p>
+
 # Ruxy
 
 Ruxy is a proxy rotation and proxy management platform built as a monorepo.
