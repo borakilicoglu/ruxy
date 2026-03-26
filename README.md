@@ -5,7 +5,6 @@ Ruxy is a proxy rotation and proxy management platform built as a monorepo.
 ## Status
 
 - Phase 0 in progress
-- Architecture and dependency rules are defined in `AGENTS.md`
 - Initial repo skeleton and execution plan are in place
 - Rust toolchain is installed and the workspace passes `cargo check`
 
@@ -19,7 +18,6 @@ Ruxy is a proxy rotation and proxy management platform built as a monorepo.
 
 ## Current docs
 
-- [AGENTS.md](./AGENTS.md): architecture, constraints, and service responsibilities
 - [docs/sprint-0.md](./docs/sprint-0.md): staged execution path
 - [docs/health-state-machine.md](./docs/health-state-machine.md): MVP health transition rules
 - [docs/api-contract-v1.md](./docs/api-contract-v1.md): first API contract draft
