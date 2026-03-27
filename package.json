@@ -4,6 +4,10 @@
   "packageManager": "pnpm@10.0.0",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:local": "./scripts/dev-local.sh",
+    "dev:stack": "./scripts/dev.sh",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose stop db",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "prepare": "husky",

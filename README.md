@@ -66,7 +66,15 @@ Frontend:
 pnpm install
 ```
 
-Full stack:
+Recommended daily dev loop:
+
+```bash
+pnpm dev:local
+```
+
+This keeps PostgreSQL in Docker and runs `core-api`, `proxy-server`, `worker`, and `dashboard` locally for faster feedback.
+
+Docker-backed full stack:
 
 ```bash
 docker compose up --build
