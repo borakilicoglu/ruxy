@@ -151,7 +151,7 @@ function ProxyCard({
               <Popover.Portal>
                 <Popover.Content
                   align="end"
-                  className="z-50 grid min-w-40 gap-1 border border-(--line-strong) bg-(--bg-panel-soft) p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
+                  className="z-40 grid min-w-40 gap-1 border border-(--line-strong) bg-(--bg-panel-soft) p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
                   sideOffset={8}
                 >
                   <button
@@ -467,7 +467,7 @@ export function ProxiesWorkspace({
             type="button"
           />
           <aside
-            className={`relative flex h-full w-full max-w-120 flex-col border-l border-(--line) bg-[#131313] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isCreateVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"}`}
+            className={`relative flex h-full w-full max-w-120 flex-col border-l border-(--line) bg-[#17181f] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isCreateVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"}`}
           >
             <div className="flex items-start justify-between gap-4 border-b border-(--line) px-5 py-5">
               <div className="grid gap-1">
