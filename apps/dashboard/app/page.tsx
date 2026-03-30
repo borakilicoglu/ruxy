@@ -1,6 +1,15 @@
 import Link from "next/link";
 
-import { getEvents, getHealthSummary, getMetricsOverview, getProxies } from "@/lib/api";
+import { DashboardPageHeader } from "@/components/dashboard-page-header";
+import {
+  getEvents,
+  getHealthChecks,
+  getHealthSummary,
+  getLatencyMetrics,
+  getMetricsOverview,
+  getProxies,
+  getSuccessRateMetrics,
+} from "@/lib/api";
 
 const statusCards = [
   { key: "healthy", label: "Healthy", tone: "var(--healthy)" },
@@ -41,307 +50,424 @@ function formatTimestamp(value: string | null) {
 }
 
 export default async function OverviewPage() {
-  const [summary, proxies, metrics, events] = await Promise.all([
+  const [
+    summary,
+    proxies,
+    metrics,
+    events,
+    latencyMetrics,
+    successRateMetrics,
+    healthChecks,
+  ] = await Promise.all([
     getHealthSummary(),
     getProxies(),
     getMetricsOverview(),
     getEvents(),
+    getLatencyMetrics(),
+    getSuccessRateMetrics(),
+    getHealthChecks(),
   ]);
   const recentProxies = proxies.items.slice(0, 5);
   const recentEvents = events.items.slice(0, 4);
+  const latestHealthChecks = healthChecks.items.slice(0, 6);
+  const attentionEntries = proxies.items
+    .filter((proxy) =>
+      ["degraded", "unhealthy", "cooling_down"].includes(proxy.status),
+    )
+    .slice(0, 6);
   const healthyRatio = metrics.healthy_ratio;
+  const healthyRatioCells = Math.max(
+    0,
+    Math.min(16, Math.round(healthyRatio * 16)),
+  );
   const attentionCount = metrics.needs_attention;
   const averageLatency = metrics.average_latency_ms ?? 0;
-  const averageSuccessRate =
-    proxies.items.reduce((total, proxy) => total + (proxy.success_rate ?? 0), 0) /
-    Math.max(proxies.items.length, 1);
-  const proxiesWithAuth = proxies.items.filter((proxy) => Boolean(proxy.username)).length;
+  const proxiesWithAuth = proxies.items.filter((proxy) =>
+    Boolean(proxy.username),
+  ).length;
+  const total = Math.max(summary.total, 1);
+  const bestLatencyBand = latencyMetrics.items.reduce(
+    (selected, item) => (item.count > selected.count ? item : selected),
+    latencyMetrics.items[0] ?? { label: "No data", count: 0 },
+  );
+  const bestSuccessBucket = successRateMetrics.items.reduce(
+    (selected, item) => (item.count > selected.count ? item : selected),
+    successRateMetrics.items[0] ?? { label: "No data", count: 0 },
+  );
 
   return (
-    <main className="grid gap-4">
-      <div className="grid gap-1">
-        <h1 className="text-[clamp(2rem,2.6vw,2.8rem)] font-medium leading-none tracking-[-0.04em] text-[var(--text)]">
-          Overview
-        </h1>
-        <p className="text-base text-[var(--muted)]">
-          Monitor pool health, recent operator activity, and live routing posture.
-        </p>
-      </div>
-
-      <section className="grid gap-3 lg:grid-cols-4">
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <span className="text-[0.74rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-            Pool Size
-          </span>
-          <div className="mt-3 text-[2.15rem] leading-none text-[var(--text)]">
-            {summary.total.toLocaleString()}
-          </div>
-          <div className="mt-2 text-[0.85rem] text-[var(--muted)]">
-            total proxies currently visible to the control plane
-          </div>
-        </article>
-
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <span className="text-[0.74rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-            Healthy Ratio
-          </span>
-          <div className="mt-3 text-[2.15rem] leading-none text-[var(--text)]">
-            {formatPercent(healthyRatio)}
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/6">
-            <div
-              className="h-full rounded-full bg-[var(--healthy)]"
-              style={{ width: `${Math.max(healthyRatio * 100, 2)}%` }}
-            />
-          </div>
-        </article>
-
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <span className="text-[0.74rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-            Average Latency
-          </span>
-          <div className="mt-3 text-[2.15rem] leading-none text-[var(--text)]">
-            {formatLatency(Math.round(averageLatency))}
-          </div>
-          <div className="mt-2 text-[0.85rem] text-[var(--muted)]">
-            visible pool average across current snapshot entries
-          </div>
-        </article>
-
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <span className="text-[0.74rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-            Need Attention
-          </span>
-          <div className="mt-3 text-[2.15rem] leading-none text-[var(--text)]">
-            {attentionCount.toLocaleString()}
-          </div>
-          <div className="mt-2 text-[0.85rem] text-[var(--muted)]">
-            degraded, cooling, and unhealthy entries combined
-          </div>
-        </article>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="grid gap-1">
-              <span className="text-[0.76rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-                Pool Health
-              </span>
-              <h2 className="text-[1.4rem] font-medium leading-none tracking-[-0.04em] text-[var(--text)]">
-                Distribution across live proxy states
-              </h2>
+    <main className="grid">
+      <DashboardPageHeader
+        actions={
+          <>
+            <div className="inline-flex items-center gap-2 border border-(--line) bg-transparent px-3 py-1.5 text-[0.8rem] text-muted">
+              <span className="h-2 w-2 bg-(--healthy)" />
+              {metrics.selection_ready.toLocaleString()} selection ready
             </div>
-            <Link
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-              href="/health"
-            >
-              Open metrics
-            </Link>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {statusCards.map((card) => (
-              <div
-                className="rounded-[14px] border border-white/8 bg-[var(--bg-panel-soft)] p-4"
-                key={card.key}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                className="inline-flex h-10 items-center border border-(--line) bg-(--bg-input) px-3.5 text-sm text-(--muted-strong) transition hover:border-[var(--line-strong)] hover:bg-[#2a2b36]"
+                href="/events"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[0.76rem] uppercase tracking-[0.12em] text-[var(--muted)]">
-                    {card.label}
-                  </span>
+                Open events
+              </Link>
+              <Link
+                className="inline-flex h-10 items-center border border-(--line) bg-(--bg-input) px-3.5 text-sm text-(--muted-strong) transition hover:border-[var(--line-strong)] hover:bg-[#2a2b36]"
+                href="/proxies"
+              >
+                Open proxies
+              </Link>
+            </div>
+          </>
+        }
+        eyebrow="Operations Board"
+        title="Live pool operations, events, and recent checks"
+      />
+      <section className="overflow-hidden bg-(--bg-panel) shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+        <div className="border-b border-(--line) px-5 py-3 text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+          Summary
+        </div>
+        <div className="divide-y divide-white/8 md:grid md:grid-cols-2 md:divide-y-0 md:[&>*:nth-child(odd)]:border-r md:[&>*:nth-child(-n+2)]:border-b xl:grid-cols-4 xl:[&>*:nth-child(2)]:border-r xl:[&>*:nth-child(-n+2)]:border-b-0">
+          <article className="px-5 py-4 xl:border-r xl:border-(--line)">
+            <div className="text-[0.74rem] uppercase tracking-[0.14em] text-muted">
+              Pool Size
+            </div>
+            <div className="mt-3 text-[1.55rem] leading-none text-(--text)">
+              {summary.total.toLocaleString()}
+            </div>
+            <div className="mt-2 text-[0.84rem] text-muted">
+              total proxies currently visible to the control plane
+            </div>
+          </article>
+
+          <article className="px-5 py-4 xl:border-r xl:border-(--line)">
+            <div className="text-[0.74rem] uppercase tracking-[0.14em] text-muted">
+              Healthy Ratio
+            </div>
+            <div className="mt-3 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+              <div className="text-[2.05rem] leading-none text-(--text)">
+                {formatPercent(healthyRatio)}
+              </div>
+              <div className="grid w-fit grid-cols-4 gap-1">
+                {Array.from({ length: 16 }, (_, index) => {
+                  const isTopRight = index === 3;
+                  const filledIndex = index > 3 ? index - 1 : index;
+                  const isFilled =
+                    !isTopRight && filledIndex < healthyRatioCells;
+
+                  return (
+                    <span
+                      className={
+                        isFilled ? "bg-[var(--healthy)]" : "bg-white/6"
+                      }
+                      key={index}
+                      style={{ height: "0.3rem", width: "0.3rem" }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mt-2 text-[0.84rem] text-muted">
+              healthy share across visible pool entries
+            </div>
+          </article>
+
+          <article className="px-5 py-4 xl:border-r xl:border-(--line)">
+            <div className="text-[0.74rem] uppercase tracking-[0.14em] text-muted">
+              Average Latency
+            </div>
+            <div className="mt-3 text-[1.55rem] leading-none text-[var(--text)]">
+              {formatLatency(Math.round(averageLatency))}
+            </div>
+            <div className="mt-2 text-[0.84rem] text-muted">
+              visible pool average across current snapshot entries
+            </div>
+          </article>
+
+          <article className="px-5 py-4">
+            <div className="text-[0.74rem] uppercase tracking-[0.14em] text-muted">
+              Need Attention
+            </div>
+            <div className="mt-3 text-[1.55rem] leading-none text-[var(--text)]">
+              {attentionCount.toLocaleString()}
+            </div>
+            <div className="mt-2 text-[0.84rem] text-muted">
+              degraded, cooling, and unhealthy entries combined
+            </div>
+          </article>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-(--line) px-5 py-3">
+          <div className="grid gap-1">
+            <div className="text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+              Attention Queue
+            </div>
+            <div className="text-[0.84rem] text-muted">
+              Entries currently blocking clean rotation across the visible pool.
+            </div>
+          </div>
+          <div className="inline-flex h-8 items-center border border-(--line) bg-[var(--bg-input)] px-3 text-[0.78rem] text-(--muted-strong)">
+            {attentionEntries.length} active
+          </div>
+        </div>
+        {attentionEntries.length > 0 ? (
+          <div className="divide-y divide-white/8">
+            {attentionEntries.map((proxy) => (
+              <div
+                className="grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.35fr)_160px_120px_120px_140px] md:items-center"
+                key={proxy.id}
+              >
+                <div className="grid gap-1">
+                  <div className="text-[0.96rem] text-[var(--text)]">
+                    {proxy.host}:{proxy.port}
+                  </div>
+                  <div className="text-[0.82rem] text-muted">
+                    {proxy.tags.length ? proxy.tags.join(", ") : "untagged"}
+                  </div>
+                </div>
+                <div>
                   <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: card.tone }}
-                  />
+                    className="inline-flex items-center gap-2 border border-(--line) px-2.5 py-1 text-[0.74rem] uppercase tracking-[0.08em]"
+                    style={{
+                      color: `var(--${proxy.status.replace("_", "-")})`,
+                    }}
+                  >
+                    <span className="h-[7px] w-[7px] bg-current" />
+                    {formatStatusLabel(proxy.status)}
+                  </span>
                 </div>
-                <div className="mt-4 text-[2rem] leading-none text-[var(--text)]">
-                  {summary[card.key].toLocaleString()}
+                <div className="text-[0.84rem] text-muted">
+                  {formatLatency(proxy.avg_latency_ms)}
                 </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/6">
+                <div className="text-[0.84rem] text-muted">
+                  {formatPercent(proxy.success_rate ?? 0)}
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {formatTimestamp(proxy.last_checked_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-5 py-4 text-[0.9rem] text-muted">
+            No degraded, cooling, or unhealthy proxies are visible right now.
+          </div>
+        )}
+
+        <div className="border-y border-(--line) px-5 py-3 text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+          Pool State
+        </div>
+        <div className="divide-y divide-white/8">
+          {statusCards.map((card) => (
+            <div
+              className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(180px,0.8fr)_90px_minmax(0,1fr)] md:items-center"
+              key={card.key}
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className="h-2.5 w-2.5"
+                  style={{ backgroundColor: card.tone }}
+                />
+                <span className="text-[0.94rem] text-[var(--text)]">
+                  {card.label}
+                </span>
+              </div>
+              <div className="text-[0.92rem] text-(--muted-strong)">
+                {summary[card.key].toLocaleString()}
+              </div>
+              <div className="grid gap-2">
+                <div className="h-1.5 overflow-hidden bg-white/6">
                   <div
-                    className="h-full rounded-full"
+                    className="h-full"
                     style={{
                       backgroundColor: card.tone,
-                      width: `${Math.max((summary[card.key] / Math.max(summary.total, 1)) * 100, 2)}%`,
+                      width: `${Math.max((summary[card.key] / total) * 100, 2)}%`,
                     }}
                   />
                 </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <aside className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <div className="grid gap-1">
-            <span className="text-[0.76rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-              Operator View
-            </span>
-            <h2 className="text-[1.4rem] font-medium leading-none tracking-[-0.04em] text-[var(--text)]">
-              Quick control readout
-            </h2>
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            <div className="rounded-[14px] border border-white/8 bg-[var(--bg-panel-soft)] p-4">
-              <div className="text-[0.76rem] uppercase tracking-[0.12em] text-[var(--muted)]">
-                Authentication Coverage
-              </div>
-              <div className="mt-3 text-[1.65rem] leading-none text-[var(--text)]">
-                {proxiesWithAuth} / {proxies.items.length}
-              </div>
-              <div className="mt-2 text-[0.84rem] text-[var(--muted)]">
-                visible proxies currently have credentials attached
+                <div className="text-[0.78rem] text-muted">
+                  {formatPercent(summary[card.key] / total)} of visible pool
+                </div>
               </div>
             </div>
+          ))}
+        </div>
 
-            <div className="rounded-[14px] border border-white/8 bg-[var(--bg-panel-soft)] p-4">
-              <div className="text-[0.76rem] uppercase tracking-[0.12em] text-[var(--muted)]">
-                Average Success Rate
-              </div>
-              <div className="mt-3 text-[1.65rem] leading-none text-[var(--text)]">
-                {formatPercent(averageSuccessRate)}
-              </div>
-              <div className="mt-2 text-[0.84rem] text-[var(--muted)]">
-                based on the current visible snapshot entries
-              </div>
-            </div>
-
-            <div className="rounded-[14px] border border-white/8 bg-[var(--bg-panel-soft)] p-4">
-              <div className="text-[0.76rem] uppercase tracking-[0.12em] text-[var(--muted)]">
-                Current Focus
-              </div>
-              <div className="mt-3 text-[1.2rem] leading-snug text-[var(--text)]">
-                {attentionCount > 0
-                  ? "Investigate degraded and cooling nodes before expanding rotation."
-                  : "Pool is stable enough to route aggressively without operator changes."}
-              </div>
-            </div>
-          </div>
-        </aside>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="grid gap-1">
-              <span className="text-[0.76rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-                Recent Activity
-              </span>
-              <h2 className="text-[1.4rem] font-medium leading-none tracking-[-0.04em] text-[var(--text)]">
-                Latest operator-facing events
-              </h2>
-            </div>
-            <Link
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-              href="/logs"
-            >
-              Open logs
-            </Link>
-          </div>
-
-          <div className="mt-5 grid gap-3">
+        <div className="border-y border-(--line) px-5 py-3 text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+          Recent Events
+        </div>
+        {recentEvents.length > 0 ? (
+          <div className="divide-y divide-white/8">
             {recentEvents.map((event) => (
               <div
-                className="rounded-[14px] border border-white/8 bg-[var(--bg-panel-soft)] p-4"
+                className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1.2fr)_140px_140px] md:items-center"
                 key={event.id}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid gap-1">
-                    <div className="text-[0.98rem] text-[var(--text)]">
-                      {formatStatusLabel(event.category)} / {event.actor}
-                    </div>
-                    <div className="text-[0.84rem] leading-relaxed text-[var(--muted)]">
-                      {event.message}
-                    </div>
+                <div className="grid gap-1">
+                  <div className="text-[0.95rem] text-[var(--text)]">
+                    {formatStatusLabel(event.category)} / {event.actor}
                   </div>
-                  <span className="text-[0.74rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                    {formatTimestamp(event.timestamp)}
-                  </span>
+                  <div className="text-[0.84rem] leading-relaxed text-muted">
+                    {event.message}
+                  </div>
+                </div>
+                <div className="text-[0.82rem] uppercase tracking-[0.08em] text-muted">
+                  {event.level}
+                </div>
+                <div className="text-[0.82rem] text-muted">
+                  {formatTimestamp(event.timestamp)}
                 </div>
               </div>
             ))}
           </div>
-        </article>
-
-        <article className="rounded-[18px] border border-white/8 bg-[var(--bg-panel)] p-[18px] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="grid gap-1">
-              <span className="text-[0.76rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-                Live Snapshot
-              </span>
-              <h2 className="text-[1.4rem] font-medium leading-none tracking-[-0.04em] text-[var(--text)]">
-                Top visible pool entries
-              </h2>
-            </div>
-            <Link
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-              href="/proxies"
-            >
-              Open table
-            </Link>
+        ) : (
+          <div className="px-5 py-4 text-[0.9rem] text-muted">
+            No recent events are available yet.
           </div>
+        )}
 
-          {recentProxies.length === 0 ? (
-            <div className="mt-5 rounded-[14px] border border-dashed border-[var(--line-strong)] p-9 text-center text-[var(--muted)]">
-              No proxies available yet.
+        <div className="border-y border-(--line) px-5 py-3 text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+          Pool Snapshot
+        </div>
+        {recentProxies.length > 0 ? (
+          <div className="divide-y divide-white/8">
+            {recentProxies.map((proxy) => (
+              <div
+                className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1.2fr)_100px_130px_100px_120px_120px] md:items-center"
+                key={proxy.id}
+              >
+                <div className="grid gap-1">
+                  <div className="text-[0.96rem] text-[var(--text)]">
+                    {proxy.host}:{proxy.port}
+                  </div>
+                  <div className="text-[0.82rem] text-muted">
+                    {proxy.tags.length ? proxy.tags.join(", ") : "untagged"}
+                  </div>
+                </div>
+                <div className="text-[0.78rem] uppercase tracking-[0.08em] text-(--muted-strong)">
+                  {proxy.scheme}
+                </div>
+                <div>
+                  <span
+                    className="inline-flex items-center gap-2 border border-(--line) px-2.5 py-1 text-[0.74rem] uppercase tracking-[0.08em]"
+                    style={{
+                      color: `var(--${proxy.status.replace("_", "-")})`,
+                    }}
+                  >
+                    <span className="h-[7px] w-[7px] bg-current" />
+                    {formatStatusLabel(proxy.status)}
+                  </span>
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {formatPercent(proxy.success_rate ?? 0)}
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {formatLatency(proxy.avg_latency_ms)}
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {formatTimestamp(proxy.last_checked_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-5 py-4 text-[0.9rem] text-muted">
+            No proxies available yet.
+          </div>
+        )}
+
+        <div className="border-y border-(--line) px-5 py-3 text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+          Health Checks
+        </div>
+        {latestHealthChecks.length > 0 ? (
+          <div className="divide-y divide-white/8">
+            {latestHealthChecks.map((item) => (
+              <div
+                className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_110px_100px_80px_140px] md:items-center"
+                key={`${item.proxy_id}-${item.checked_at}`}
+              >
+                <div className="grid gap-1">
+                  <div className="text-[0.95rem] text-[var(--text)]">
+                    Proxy {item.proxy_id.slice(0, 8)}
+                  </div>
+                  <div className="text-[0.82rem] text-muted">
+                    {item.error_kind ?? "No transport error"}
+                    {item.http_status ? ` · HTTP ${item.http_status}` : ""}
+                  </div>
+                </div>
+                <div>
+                  <span
+                    className="inline-flex items-center gap-2 border border-(--line) px-2.5 py-1 text-[0.74rem] uppercase tracking-[0.08em]"
+                    style={{
+                      color: item.success
+                        ? "var(--healthy)"
+                        : "var(--unhealthy)",
+                    }}
+                  >
+                    <span className="h-[7px] w-[7px] bg-current" />
+                    {item.success ? "success" : "failure"}
+                  </span>
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {formatLatency(item.latency_ms)}
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {item.http_status ?? "n/a"}
+                </div>
+                <div className="text-[0.84rem] text-muted">
+                  {formatTimestamp(item.checked_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-5 py-4 text-[0.9rem] text-muted">
+            No recorded health checks are available yet.
+          </div>
+        )}
+
+        <div className="border-t border-(--line) bg-(--bg-panel-soft)">
+          <div className="border-b border-(--line) px-5 py-3 text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+            Snapshot Notes
+          </div>
+          <div className="divide-y divide-white/8 md:grid md:grid-cols-3 md:divide-y-0 md:[&>*:not(:last-child)]:border-r md:[&>*]:border-(--line)">
+            <div className="px-5 py-4">
+              <div className="text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+                Authentication Coverage
+              </div>
+              <div className="mt-3 text-[1.1rem] leading-none text-[var(--text)]">
+                {proxiesWithAuth} / {proxies.items.length}
+              </div>
+              <div className="mt-2 text-[0.84rem] text-muted">
+                visible proxies currently have credentials attached...
+              </div>
             </div>
-          ) : (
-            <div className="mt-5 overflow-hidden rounded-[14px] border border-white/8">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    {["Address", "Protocol", "Status", "Success", "Latency", "Last Check"].map((heading) => (
-                      <th
-                        className="border-b border-white/8 px-4 py-3 text-left text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]"
-                        key={heading}
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentProxies.map((proxy) => (
-                    <tr className="hover:bg-white/2" key={proxy.id}>
-                      <td className="border-b border-white/8 px-4 py-3 align-middle">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[0.92rem] text-[var(--text)]">
-                            {proxy.host}:{proxy.port}
-                          </span>
-                          <span className="text-[0.76rem] text-[var(--muted)]">
-                            {proxy.tags.length ? proxy.tags.join(", ") : "untagged"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="border-b border-white/8 px-4 py-3 text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted-strong)]">
-                        {proxy.scheme}
-                      </td>
-                      <td className="border-b border-white/8 px-4 py-3">
-                        <span
-                          className="inline-flex items-center gap-2 rounded-full border border-white/8 px-2.5 py-1 text-[0.74rem] uppercase tracking-[0.08em]"
-                          style={{ color: `var(--${proxy.status.replace("_", "-")})` }}
-                        >
-                          <span className="h-[7px] w-[7px] rounded-full bg-current" />
-                          {formatStatusLabel(proxy.status)}
-                        </span>
-                      </td>
-                      <td className="border-b border-white/8 px-4 py-3 text-[0.82rem] text-[var(--muted)]">
-                        {formatPercent(proxy.success_rate ?? 0)}
-                      </td>
-                      <td className="border-b border-white/8 px-4 py-3 text-[0.82rem] text-[var(--muted)]">
-                        {formatLatency(proxy.avg_latency_ms)}
-                      </td>
-                      <td className="border-b border-white/8 px-4 py-3 text-[0.82rem] text-[var(--muted)]">
-                        {formatTimestamp(proxy.last_checked_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="px-5 py-4">
+              <div className="text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+                Dominant Latency Band
+              </div>
+              <div className="mt-3 text-[1.1rem] leading-snug text-[var(--text)]">
+                {bestLatencyBand.label}
+              </div>
+              <div className="mt-2 text-[0.84rem] text-muted">
+                {bestLatencyBand.count.toLocaleString()} proxies are clustered
+                here
+              </div>
             </div>
-          )}
-        </article>
+            <div className="px-5 py-4">
+              <div className="text-[0.76rem] uppercase tracking-[0.12em] text-muted">
+                Dominant Success Bucket
+              </div>
+              <div className="mt-3 text-[1.1rem] leading-snug text-[var(--text)]">
+                {bestSuccessBucket.label}
+              </div>
+              <div className="mt-2 text-[0.84rem] text-muted">
+                {bestSuccessBucket.count.toLocaleString()} proxies fall into
+                this bucket
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   );

@@ -39,7 +39,7 @@ export function DashboardSelect({
       {name ? <input name={name} type="hidden" value={selectedValue} /> : null}
       <Select.Root onValueChange={handleValueChange} value={selectedValue}>
       <Select.Trigger
-        className="inline-flex h-10 min-w-[124px] items-center justify-between gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--bg-input)] px-3.5 text-sm text-[var(--text)] outline-none transition hover:border-[var(--line-strong)] hover:bg-[#222]"
+        className="inline-flex h-10 min-w-[124px] items-center justify-between gap-3 border border-(--line) bg-[var(--bg-input)] px-3.5 text-sm text-[var(--text)] outline-none transition hover:border-[var(--line-strong)] hover:bg-[#2a2b36]"
         aria-label="Select option"
       >
         <Select.Value />
@@ -49,13 +49,13 @@ export function DashboardSelect({
       </Select.Trigger>
       <Select.Portal>
         <Select.Content
-          className="z-[70] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[10px] border border-[var(--line-strong)] bg-[var(--bg-panel-soft)] shadow-[0_20px_40px_rgba(0,0,0,0.38)]"
+          className="z-[70] w-[var(--radix-select-trigger-width)] overflow-hidden border border-[var(--line-strong)] bg-(--bg-panel-soft) shadow-[0_20px_40px_rgba(0,0,0,0.38)]"
           position="popper"
         >
           <Select.Viewport className="p-1.5">
             {options.map((option) => (
               <Select.Item
-                className="relative flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--muted-strong)] outline-none data-[highlighted]:bg-white/6"
+                className="relative flex items-center justify-between gap-3 px-3 py-2.5 text-sm text-(--muted-strong) outline-none data-[highlighted]:bg-white/6"
                 key={option.value}
                 value={option.value}
               >

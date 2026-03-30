@@ -18,6 +18,20 @@ export type HealthSummary = {
   unknown: number;
 };
 
+export type HealthCheckItem = {
+  proxy_id: string;
+  success: boolean;
+  latency_ms: number | null;
+  http_status: number | null;
+  error_kind: string | null;
+  checked_at: string;
+};
+
+export type HealthCheckListResponse = {
+  items: HealthCheckItem[];
+  total: number;
+};
+
 export type ProxyItem = {
   id: string;
   scheme: string;
@@ -95,6 +109,8 @@ export type SettingsResponse = {
   recovery_threshold: number;
 };
 
+export type UpdateSettingsPayload = SettingsResponse;
+
 export type CreateProxyPayload = {
   scheme: string;
   host: string;
@@ -103,6 +119,8 @@ export type CreateProxyPayload = {
   password?: string;
   tags: string[];
 };
+
+export type UpdateProxyPayload = CreateProxyPayload;
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
@@ -156,6 +174,13 @@ export function getHealthSummary() {
   return apiFetch<HealthSummary>("/api/health/summary").catch(() => mockHealthSummary);
 }
 
+export function getHealthChecks() {
+  return apiFetch<HealthCheckListResponse>("/api/health/checks").catch(() => ({
+    items: [],
+    total: 0,
+  }));
+}
+
 export function getMetricsOverview() {
   return apiFetch<MetricsOverview>("/api/metrics/overview").catch(
     () => mockMetricsOverview,
@@ -182,6 +207,13 @@ export function getSettings() {
   return apiFetch<SettingsResponse>("/api/settings").catch(() => mockSettingsResponse);
 }
 
+export function updateSettings(payload: UpdateSettingsPayload) {
+  return apiWrite("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  }) as Promise<SettingsResponse>;
+}
+
 export async function getProxies() {
   try {
     return await apiFetch<ProxyListResponse>("/api/proxies");
@@ -201,4 +233,11 @@ export function deleteProxy(id: string) {
   return apiWrite(`/api/proxies/${id}`, {
     method: "DELETE",
   });
+}
+
+export function updateProxy(id: string, payload: UpdateProxyPayload) {
+  return apiWrite(`/api/proxies/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  }) as Promise<ProxyItem>;
 }

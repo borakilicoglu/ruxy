@@ -17,14 +17,14 @@ use crate::{
     app_state::AppState,
     dto::{
         CreateProxyRequest, CreateProxyResponse, ErrorResponse, ManualHealthCheckRequest,
-        ManualHealthCheckResponse, ProxyListResponse, ProxyResponse,
+        ManualHealthCheckResponse, ProxyListResponse, ProxyResponse, UpdateProxyRequest,
     },
 };
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(list_proxies).post(create_proxy))
-        .route("/{id}", get(get_proxy).delete(delete_proxy))
+        .route("/{id}", get(get_proxy).patch(update_proxy).delete(delete_proxy))
         .route("/{id}/check", axum::routing::post(run_manual_health_check))
 }
 
@@ -63,6 +63,18 @@ async fn get_proxy(
 ) -> Result<Json<ProxyResponse>, ApiError> {
     let service = ProxyPoolService::new(state.proxy_repository);
     let proxy = service.get_proxy(id).await?;
+
+    Ok(Json(ProxyResponse::from(proxy)))
+}
+
+async fn update_proxy(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateProxyRequest>,
+) -> Result<Json<ProxyResponse>, ApiError> {
+    let service = ProxyPoolService::new(state.proxy_repository);
+    let new_proxy = payload.try_into().map_err(ApiError::bad_request)?;
+    let proxy = service.update_proxy(id, new_proxy, Utc::now()).await?;
 
     Ok(Json(ProxyResponse::from(proxy)))
 }
@@ -271,6 +283,42 @@ mod tests {
 
         let get_response = app.oneshot(get_request).await.unwrap();
         assert_eq!(get_response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn patch_proxy_updates_definition() {
+        let app = build_app(AppState::new());
+        let create_request = Request::builder()
+            .method("POST")
+            .uri("/api/proxies")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"scheme":"http","host":"127.0.0.1","port":8080,"username":"user","password":"secret","tags":["test"]}"#,
+            ))
+            .unwrap();
+
+        let create_response = app.clone().oneshot(create_request).await.unwrap();
+        let create_body = to_bytes(create_response.into_body(), usize::MAX).await.unwrap();
+        let create_body_text = String::from_utf8(create_body.to_vec()).unwrap();
+        let id = extract_id(&create_body_text);
+
+        let patch_request = Request::builder()
+            .method("PATCH")
+            .uri(format!("/api/proxies/{id}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"scheme":"https","host":"10.0.0.12","port":8443,"username":"ops","password":"new-secret","tags":["edited","pool-a"]}"#,
+            ))
+            .unwrap();
+
+        let patch_response = app.oneshot(patch_request).await.unwrap();
+        assert_eq!(patch_response.status(), StatusCode::OK);
+
+        let patch_body = to_bytes(patch_response.into_body(), usize::MAX).await.unwrap();
+        let patch_text = String::from_utf8(patch_body.to_vec()).unwrap();
+        assert!(patch_text.contains("\"host\":\"10.0.0.12\""));
+        assert!(patch_text.contains("\"scheme\":\"https\""));
+        assert!(patch_text.contains("\"status\":\"unknown\""));
     }
 
     #[tokio::test]

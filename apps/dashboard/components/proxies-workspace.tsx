@@ -1,14 +1,25 @@
 "use client";
 
-import { ArrowClockwise, Funnel, Plus, X } from "@phosphor-icons/react";
+import {
+  ArrowClockwise,
+  DotsThreeOutline,
+  Plus,
+  X,
+} from "@phosphor-icons/react";
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@heroui/react/toast";
-import { DashboardCheckbox } from "@/components/dashboard-checkbox";
+import { DashboardAction } from "@/components/dashboard-action";
 import { DashboardInput } from "@/components/dashboard-input";
+import { DashboardPageHeader } from "@/components/dashboard-page-header";
 import { DashboardSelect } from "@/components/dashboard-select";
-import { createProxy, deleteProxy, type ProxyItem } from "@/lib/api";
+import {
+  createProxy,
+  deleteProxy,
+  updateProxy,
+  type ProxyItem,
+} from "@/lib/api";
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -69,98 +80,160 @@ function buildGhostProxy(index: number): ProxyItem {
   };
 }
 
-function ProxyTableRow({
+function ProxyCard({
   proxy,
-  selected = false,
   ghost = false,
-  onToggle,
+  onEdit,
   onDelete,
 }: {
   proxy: ProxyItem;
-  selected?: boolean;
   ghost?: boolean;
-  onToggle?: (checked: boolean) => void;
+  onEdit?: () => void;
   onDelete?: () => void;
 }) {
   const ghostClass = ghost ? "animate-pulse" : "";
-  const ghostTextClass = ghost ? "rounded bg-white/8 text-transparent select-none" : "";
-  const ghostSoftTextClass = ghost ? "rounded bg-white/5 text-transparent select-none" : "";
-  const ghostPillClass = ghost ? "border-transparent bg-white/6 text-transparent" : "";
+  const ghostTextClass = ghost ? "bg-white/8 text-transparent select-none" : "";
+  const ghostSoftTextClass = ghost
+    ? "bg-white/5 text-transparent select-none"
+    : "";
+  const ghostPillClass = ghost
+    ? "border-transparent bg-white/6 text-transparent"
+    : "";
+  const cellMonoStyle = { fontFamily: "var(--font-mono), monospace" } as const;
 
   return (
-    <tr className={ghost ? "" : "hover:bg-white/2"}>
-      <td className="w-11 border-b border-white/8 px-[14px] py-[14px] align-middle">
-        {ghost ? (
-          <div className="h-4 w-4 rounded-[5px] bg-white/6 animate-pulse" />
-        ) : (
-          <DashboardCheckbox checked={selected} onCheckedChange={onToggle} />
-        )}
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.95rem] text-[var(--muted-strong)]">
-        <div className="flex flex-col gap-1">
-          <span
-            className={`text-[0.92rem] text-[var(--text)] ${ghostClass} ${ghostTextClass}`}
-            style={{ fontFamily: "var(--font-mono), monospace" }}
-          >
-            {proxy.host}:{proxy.port}
-          </span>
-          <span
-            className={`text-[0.76rem] text-[var(--muted)] ${ghostClass} ${ghostSoftTextClass}`}
-            style={{ fontFamily: "var(--font-mono), monospace" }}
-          >
-            {proxy.tags.length ? proxy.tags.join(", ") : "untagged"}
-          </span>
+    <article
+      className={`flex h-full flex-col bg-(--bg-panel) p-5 transition ${
+        ghost ? "" : "hover:bg-white/2"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {ghost ? (
+            <div className="mt-1 h-4 w-4 bg-white/6 animate-pulse" />
+          ) : null}
+          <div className="flex flex-col gap-1">
+            <span
+              className={`text-[0.92rem] text-(--text) ${ghostClass} ${ghostTextClass}`}
+              style={cellMonoStyle}
+            >
+              {proxy.host}:{proxy.port}
+            </span>
+            <span
+              className={`text-[0.76rem] text-muted ${ghostClass} ${ghostSoftTextClass}`}
+              style={cellMonoStyle}
+            >
+              {proxy.tags.length ? proxy.tags.join(", ") : "untagged"}
+            </span>
+          </div>
         </div>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.95rem] text-[var(--muted-strong)]">
+        <div className="flex items-center justify-center text-[0.95rem] text-(--muted-strong)">
+          {ghost ? (
+            <div className="mx-auto inline-flex h-10 w-10 items-center justify-center border border-transparent bg-white/6 text-transparent animate-pulse select-none">
+              .
+            </div>
+          ) : (
+            <Popover.Root>
+              <Popover.Trigger asChild>
+                <DashboardAction
+                  aria-label="Open row actions"
+                  className="mx-auto"
+                  iconOnly
+                  variant="standard"
+                >
+                  <DotsThreeOutline
+                    className="translate-x-px"
+                    size={16}
+                    weight="fill"
+                  />
+                </DashboardAction>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  align="end"
+                  className="z-50 grid min-w-40 gap-1 border border-(--line-strong) bg-(--bg-panel-soft) p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
+                  sideOffset={8}
+                >
+                  <button
+                    className="px-3 py-2 text-left text-sm text-(--muted-strong) transition hover:bg-white/6"
+                    onClick={onEdit}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="px-3 py-2 text-left text-sm text-[#e7a3a3] transition hover:bg-[#3a1f1f]"
+                    onClick={onDelete}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <span
-          className={`inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[0.72rem] uppercase tracking-[0.08em] ${ghostClass} ${ghostPillClass}`}
-          style={{ fontFamily: "var(--font-mono), monospace" }}
+          className={`inline-flex items-center gap-2 border border-(--line) bg-white/4 px-2.5 py-1 text-[0.72rem] uppercase tracking-[0.08em] ${ghostClass} ${ghostPillClass}`}
+          style={cellMonoStyle}
         >
           {proxy.scheme}
         </span>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.95rem] text-[var(--muted-strong)]">
         <span
-          className={`inline-flex items-center gap-2 rounded-full border border-white/8 px-2.5 py-1 text-[0.76rem] uppercase tracking-[0.08em] ${ghostClass} ${ghostPillClass}`}
-          style={ghost ? undefined : { color: `var(--${proxy.status.replace("_", "-")})` }}
+          className={`inline-flex items-center gap-2 border border-(--line) px-2.5 py-1 text-[0.76rem] uppercase tracking-[0.08em] ${ghostClass} ${ghostPillClass}`}
+          style={
+            ghost
+              ? undefined
+              : { color: `var(--${proxy.status.replace("_", "-")})` }
+          }
         >
-          <span className={`h-[7px] w-[7px] rounded-full ${ghost ? "bg-white/0" : "bg-current"}`} />
+          <span
+            className={`h-1.75 w-1.75 ${ghost ? "bg-white/0" : "bg-current"}`}
+          />
           {formatStatusLabel(proxy.status)}
         </span>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.82rem] text-[var(--muted)]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-        <span className={`${ghostClass} ${ghostTextClass}`}>{proxy.request_count ?? Math.max(0, 1 - proxy.consecutive_failures)}</span>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.82rem] text-[var(--muted)]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-        <span className={`${ghostClass} ${ghostTextClass}`}>
-          {proxy.success_rate ? `${(proxy.success_rate * 100).toFixed(1)}%` : "0.0%"}
-        </span>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.82rem] text-[var(--muted)]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-        <span className={`${ghostClass} ${ghostTextClass}`}>
-          {proxy.avg_latency_ms ? `${proxy.avg_latency_ms}ms` : "0ms"}
-        </span>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.78rem] text-[var(--muted)]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-        <span className={`${ghostClass} ${ghostTextClass}`}>{formatTimestamp(proxy.last_checked_at)}</span>
-      </td>
-      <td className="border-b border-white/8 px-[14px] py-[14px] align-middle text-[0.95rem] text-[var(--muted-strong)]">
-        {ghost ? (
-          <div className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-transparent bg-white/6 px-3.5 text-sm text-transparent animate-pulse select-none">
-            Delete
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-(--line) pt-4">
+        {[
+          {
+            label: "Requests",
+            value:
+              proxy.request_count ??
+              Math.max(0, 1 - proxy.consecutive_failures),
+          },
+          {
+            label: "Success Rate",
+            value: proxy.success_rate
+              ? `${(proxy.success_rate * 100).toFixed(1)}%`
+              : "0.0%",
+          },
+          {
+            label: "Latency",
+            value: proxy.avg_latency_ms ? `${proxy.avg_latency_ms}ms` : "0ms",
+          },
+          {
+            label: "Last check",
+            value: formatTimestamp(proxy.last_checked_at),
+          },
+        ].map((item) => (
+          <div className="grid gap-1" key={item.label}>
+            <span className="text-[0.72rem] uppercase tracking-[0.08em] text-muted">
+              {item.label}
+            </span>
+            <span
+              className={`text-[0.82rem] text-(--muted-strong) ${ghostClass} ${ghostTextClass}`}
+              style={cellMonoStyle}
+            >
+              {String(item.value)}
+            </span>
           </div>
-        ) : (
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-            onClick={onDelete}
-            type="button"
-          >
-            Delete
-          </button>
-        )}
-      </td>
-    </tr>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -173,17 +246,12 @@ export function ProxiesWorkspace({
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialItems);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [schemeFilter, setSchemeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [tagFilter, setTagFilter] = useState("");
-  const [hasAuthFilter, setHasAuthFilter] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreateVisible, setIsCreateVisible] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
-  const createFormRef = useRef<HTMLFormElement>(null);
+  const [editingProxy, setEditingProxy] = useState<ProxyItem | null>(null);
+  const panelFormRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     setRows(initialItems);
@@ -218,115 +286,28 @@ export function ProxiesWorkspace({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isCreateOpen]);
 
-  const filteredItems = rows.filter((proxy) => {
-    const address = `${proxy.host}:${proxy.port}`.toLowerCase();
-    const tags = proxy.tags.join(", ").toLowerCase();
-    const search = searchQuery.trim().toLowerCase();
-
-    const matchesSearch =
-      search.length === 0 ||
-      address.includes(search) ||
-      tags.includes(search) ||
-      proxy.scheme.toLowerCase().includes(search);
-
-    const matchesScheme =
-      schemeFilter === "all" || proxy.scheme.toLowerCase() === schemeFilter;
-
-    const matchesStatus =
-      statusFilter === "all" || proxy.status.toLowerCase() === statusFilter;
-
-    const matchesTag =
-      tagFilter.trim().length === 0 || tags.includes(tagFilter.trim().toLowerCase());
-
-    const matchesAuth = !hasAuthFilter || Boolean(proxy.username);
-
-    return matchesSearch && matchesScheme && matchesStatus && matchesTag && matchesAuth;
-  });
-
-  const activeFilterCount = [
-    schemeFilter !== "all",
-    statusFilter !== "all",
-    tagFilter.trim().length > 0,
-    hasAuthFilter,
-  ].filter(Boolean).length;
-
-  const visibleIds = filteredItems.map((item) => item.id);
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
-  const ghostRows = Array.from({ length: 10 }, (_, index) => rows[index] ?? buildGhostProxy(index));
-
-  function clearFilters() {
-    setSchemeFilter("all");
-    setStatusFilter("all");
-    setTagFilter("");
-    setHasAuthFilter(false);
-  }
+  const filteredItems = rows;
+  const ghostRows = Array.from(
+    { length: 10 },
+    (_, index) => rows[index] ?? buildGhostProxy(index),
+  );
 
   function openCreatePanel() {
+    setEditingProxy(null);
+    setIsCreateOpen(true);
+  }
+
+  function openEditPanel(proxy: ProxyItem) {
+    setEditingProxy(proxy);
     setIsCreateOpen(true);
   }
 
   function closeCreatePanel() {
     setIsCreateVisible(false);
-    window.setTimeout(() => setIsCreateOpen(false), 220);
-  }
-
-  function toggleRowSelection(id: string, checked: boolean) {
-    setSelectedIds((current) =>
-      checked ? [...new Set([...current, id])] : current.filter((item) => item !== id),
-    );
-  }
-
-  function toggleVisibleSelection(checked: boolean) {
-    setSelectedIds((current) => {
-      if (checked) {
-        return [...new Set([...current, ...visibleIds])];
-      }
-
-      return current.filter((id) => !visibleIds.includes(id));
-    });
-  }
-
-  function exportVisibleRows() {
-    const header = ["address", "protocol", "status", "requests", "success_rate", "avg_response_ms", "last_check"];
-    const lines = filteredItems.map((proxy) => [
-      `${proxy.host}:${proxy.port}`,
-      proxy.scheme,
-      proxy.status,
-      String(proxy.request_count ?? Math.max(0, 1 - proxy.consecutive_failures)),
-      proxy.success_rate ? `${(proxy.success_rate * 100).toFixed(1)}%` : "0.0%",
-      proxy.avg_latency_ms ? `${proxy.avg_latency_ms}` : "0",
-      proxy.last_checked_at ?? "",
-    ]);
-
-    const csv = [header, ...lines].map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "ruxy-proxies.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function deleteSelectedRows() {
-    const targetIds = selectedIds;
-
-    if (targetIds.length === 0) {
-      return;
-    }
-
-    try {
-      await Promise.all(targetIds.map((id) => deleteProxy(id)));
-      router.refresh();
-
-      setRows((current) => current.filter((row) => !targetIds.includes(row.id)));
-      setSelectedIds([]);
-      toast.success("Selected proxies deleted");
-    } catch (error) {
-      toast.danger(error instanceof Error ? error.message : "Failed to delete proxies");
-    }
+    window.setTimeout(() => {
+      setIsCreateOpen(false);
+      setEditingProxy(null);
+    }, 220);
   }
 
   async function deleteSingleRow(id: string) {
@@ -335,10 +316,11 @@ export function ProxiesWorkspace({
       router.refresh();
 
       setRows((current) => current.filter((row) => row.id !== id));
-      setSelectedIds((current) => current.filter((item) => item !== id));
       toast.success("Proxy deleted");
     } catch (error) {
-      toast.danger(error instanceof Error ? error.message : "Failed to delete proxy");
+      toast.danger(
+        error instanceof Error ? error.message : "Failed to delete proxy",
+      );
     }
   }
 
@@ -369,21 +351,37 @@ export function ProxiesWorkspace({
     setIsCreating(true);
 
     try {
-      await createProxy({
+      const payload = {
         scheme,
         host,
         port,
         username: parseOptional(formData.get("username")),
         password: parseOptional(formData.get("password")),
         tags: parseTags(formData.get("tags")),
-      });
+      };
 
-      createFormRef.current?.reset();
+      if (editingProxy) {
+        const updated = await updateProxy(editingProxy.id, payload);
+        setRows((current) =>
+          current.map((row) => (row.id === editingProxy.id ? updated : row)),
+        );
+        toast.success("Proxy updated");
+      } else {
+        await createProxy(payload);
+        panelFormRef.current?.reset();
+        toast.success("Proxy created");
+      }
+
       closeCreatePanel();
       router.refresh();
-      toast.success("Proxy created");
     } catch (error) {
-      toast.danger(error instanceof Error ? error.message : "Failed to create proxy");
+      toast.danger(
+        error instanceof Error
+          ? error.message
+          : editingProxy
+            ? "Failed to update proxy"
+            : "Failed to create proxy",
+      );
     } finally {
       setIsCreating(false);
     }
@@ -404,308 +402,108 @@ export function ProxiesWorkspace({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-[0.76rem] uppercase tracking-[0.14em] text-[var(--muted)]">
-            Proxies
-          </span>
-          <h2
-            className="text-[1.02rem]"
-            style={{ fontFamily: "var(--font-mono), monospace" }}
-          >
-            {total} total proxies
-          </h2>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[#d6d6d6] px-3.5 text-sm font-semibold text-[#111] transition hover:bg-[#f2f2f2]"
-            onClick={openCreatePanel}
-            type="button"
-          >
-            <Plus size={15} weight="bold" />
-            Add Proxy
-          </button>
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-            onClick={handleReloadPool}
-            type="button"
-          >
-            <ArrowClockwise
-              className={isReloading ? "animate-spin" : undefined}
-              size={15}
-              weight="bold"
-            />
-            Reload Pool
-          </button>
-          <Popover.Root>
-            <Popover.Trigger asChild>
-              <button
-                className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-                type="button"
-              >
-                Bulk Actions
-                <span className="text-[0.82rem]">▾</span>
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                align="end"
-                className="z-50 grid min-w-[220px] gap-1 rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-panel-soft)] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
-                sideOffset={10}
-              >
-                <button
-                  className="rounded-[10px] px-3 py-2 text-left text-sm text-[var(--muted-strong)] transition hover:bg-white/6"
-                  onClick={() => toggleVisibleSelection(true)}
-                  type="button"
-                >
-                  Select visible rows
-                </button>
-                <button
-                  className="rounded-[10px] px-3 py-2 text-left text-sm text-[var(--muted-strong)] transition hover:bg-white/6"
-                  onClick={() => setSelectedIds([])}
-                  type="button"
-                >
-                  Clear selection
-                </button>
-                <button
-                  className="rounded-[10px] px-3 py-2 text-left text-sm text-[var(--muted-strong)] transition hover:bg-white/6"
-                  onClick={exportVisibleRows}
-                  type="button"
-                >
-                  Export visible rows
-                </button>
-                <button
-                  className="rounded-[10px] px-3 py-2 text-left text-sm text-[#e7a3a3] transition hover:bg-[#3a1f1f]"
-                  onClick={deleteSelectedRows}
-                  type="button"
-                >
-                  Delete selected
-                </button>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-        </div>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          <DashboardInput
-            aria-label="Search proxies"
-            className="min-w-[300px] flex-1 text-sm max-sm:min-w-0"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search by address ..."
-            value={searchQuery}
-          />
-          <Popover.Root>
-            <Popover.Trigger asChild>
-              <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]"
-                type="button"
-              >
-                <Funnel size={15} weight="bold" />
-                Filter
-                {activeFilterCount > 0 ? (
-                  <span className="rounded-full border border-white/8 px-1.5 py-0.5 text-[0.68rem] leading-none">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                align="end"
-                alignOffset={0}
-                className="z-50 grid w-[360px] gap-4 rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-panel-soft)] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
-                side="bottom"
-                sideOffset={6}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="grid gap-1">
-                    <span className="text-[0.76rem] uppercase tracking-[0.12em] text-[var(--muted)]">
-                      Filters
-                    </span>
-                    <span className="text-sm text-[var(--muted-strong)]">
-                      Refine the visible proxy list
-                    </span>
-                  </div>
-                  <button
-                    className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)] transition hover:text-[var(--text)]"
-                    onClick={clearFilters}
-                    type="button"
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="grid gap-2">
-                    <span className="text-[0.74rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                      Scheme
-                    </span>
-                    <DashboardSelect
-                      onValueChange={setSchemeFilter}
-                      options={[
-                        { value: "all", label: "All schemes" },
-                        { value: "http", label: "HTTP" },
-                        { value: "https", label: "HTTPS" },
-                        { value: "socks5", label: "SOCKS5" },
-                      ]}
-                      value={schemeFilter}
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <span className="text-[0.74rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                      Status
-                    </span>
-                    <DashboardSelect
-                      onValueChange={setStatusFilter}
-                      options={[
-                        { value: "all", label: "All statuses" },
-                        { value: "healthy", label: "Healthy" },
-                        { value: "degraded", label: "Degraded" },
-                        { value: "unhealthy", label: "Unhealthy" },
-                        { value: "cooling_down", label: "Cooling Down" },
-                        { value: "disabled", label: "Disabled" },
-                        { value: "unknown", label: "Unknown" },
-                      ]}
-                      value={statusFilter}
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <span className="text-[0.74rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                      Tag contains
-                    </span>
-                    <DashboardInput
-                      onChange={(event) => setTagFilter(event.target.value)}
-                      placeholder="eu, residential, premium"
-                      value={tagFilter}
-                    />
-                  </div>
-
-                  <label className="flex h-10 items-center gap-3 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)]">
-                    <DashboardCheckbox
-                      checked={hasAuthFilter}
-                      onCheckedChange={setHasAuthFilter}
-                    />
-                    Has credentials
-                  </label>
-                </div>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-          <DashboardSelect
-            defaultValue="default"
-            options={[
-              { value: "default", label: "Columns" },
-              { value: "compact", label: "Compact" },
-              { value: "extended", label: "Extended" },
-            ]}
-          />
-        </div>
-      </div>
+      <DashboardPageHeader
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <DashboardAction
+              icon={<Plus size={15} weight="bold" />}
+              onClick={openCreatePanel}
+              variant="primary"
+            >
+              Add Proxy
+            </DashboardAction>
+            <DashboardAction
+              icon={
+                <ArrowClockwise
+                  className={isReloading ? "animate-spin" : undefined}
+                  size={15}
+                  weight="bold"
+                />
+              }
+              onClick={handleReloadPool}
+              variant="standard"
+            >
+              Reload Pool
+            </DashboardAction>
+          </div>
+        }
+        eyebrow="Proxy Workspace"
+        title="Proxy pool controls and active entries"
+      />
 
       {isReloading ? (
-        <div className="overflow-x-auto rounded-[14px] border border-white/8">
-          <table className="min-w-[980px] w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="w-11 border-b border-white/8 px-[14px] py-[14px]" />
-                {["Address", "Protocol", "Status", "Requests", "Success Rate", "Latency", "Last check", "Action"].map((heading) => (
-                  <th
-                    className="border-b border-white/8 px-[14px] py-[14px] text-left text-[0.82rem] whitespace-nowrap text-[var(--muted-strong)]"
-                    key={heading}
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ghostRows.map((proxy, index) => (
-                <ProxyTableRow ghost key={`ghost-${proxy.id}-${index}`} proxy={proxy} />
-              ))}
-            </tbody>
-          </table>
+        <div className="grid divide-y divide-(--line) md:grid-cols-2 md:divide-y-0 md:[&>*:nth-child(odd)]:border-r md:[&>*]:border-b md:[&>*]:border-(--line) xl:grid-cols-4 xl:[&>*:not(:last-child)]:border-r">
+          {ghostRows.map((proxy, index) => (
+            <ProxyCard ghost key={`ghost-${proxy.id}-${index}`} proxy={proxy} />
+          ))}
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-[var(--line-strong)] p-9 text-center text-[var(--muted)]">
-          {rows.length === 0 ? "No proxies have been created yet." : "No proxies match the current filters."}
+        <div className="border border-dashed border-(--line-strong) p-9 text-center text-muted">
+          {rows.length === 0
+            ? "No proxies have been created yet."
+            : "No proxies match the current filters."}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-[14px] border border-white/8">
-          <table className="min-w-[980px] w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="w-11 border-b border-white/8 px-[14px] py-[14px] text-left text-[0.82rem] whitespace-nowrap text-[var(--muted-strong)]">
-                  <DashboardCheckbox
-                    checked={allVisibleSelected}
-                    onCheckedChange={toggleVisibleSelection}
-                  />
-                </th>
-                {["Address", "Protocol", "Status", "Requests", "Success Rate", "Latency", "Last check", "Action"].map((heading) => (
-                  <th
-                    className="border-b border-white/8 px-[14px] py-[14px] text-left text-[0.82rem] whitespace-nowrap text-[var(--muted-strong)]"
-                    key={heading}
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((proxy) => (
-                <ProxyTableRow
-                  key={proxy.id}
-                  onDelete={() => deleteSingleRow(proxy.id)}
-                  onToggle={(checked) => toggleRowSelection(proxy.id, checked)}
-                  proxy={proxy}
-                  selected={selectedIds.includes(proxy.id)}
-                />
-              ))}
-            </tbody>
-          </table>
+        <div className="grid divide-y divide-(--line) md:grid-cols-2 md:divide-y-0 md:[&>*:nth-child(odd)]:border-r md:[&>*]:border-b md:[&>*]:border-(--line) xl:grid-cols-4 xl:[&>*:not(:last-child)]:border-r">
+          {filteredItems.map((proxy) => (
+            <ProxyCard
+              key={proxy.id}
+              onEdit={() => openEditPanel(proxy)}
+              onDelete={() => deleteSingleRow(proxy.id)}
+              proxy={proxy}
+            />
+          ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 pt-3 text-[0.78rem] text-[var(--muted)]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-        <span>{selectedIds.length} of {filteredItems.length} row(s) selected.</span>
-        <div className="flex gap-2">
-          <button className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]" type="button">
-            Previous
-          </button>
-          <button className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]" type="button">
-            Next
-          </button>
-        </div>
-      </div>
-
       {isCreateOpen ? (
-        <div className={`fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[1px] transition-opacity duration-200 ${isCreateVisible ? "opacity-100" : "opacity-0"}`}>
-          <button aria-label="Close panel" className="absolute inset-0 cursor-default" onClick={closeCreatePanel} type="button" />
-          <aside className={`relative flex h-full w-full max-w-[480px] flex-col border-l border-white/8 bg-[#131313] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isCreateVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"}`}>
-            <div className="flex items-start justify-between gap-4 border-b border-white/8 px-5 py-5">
+        <div
+          className={`fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[1px] transition-opacity duration-200 ${isCreateVisible ? "opacity-100" : "opacity-0"}`}
+        >
+          <button
+            aria-label="Close panel"
+            className="absolute inset-0 cursor-default"
+            onClick={closeCreatePanel}
+            type="button"
+          />
+          <aside
+            className={`relative flex h-full w-full max-w-120 flex-col border-l border-(--line) bg-[#131313] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isCreateVisible ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"}`}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-(--line) px-5 py-5">
               <div className="grid gap-1">
-                <span className="text-[0.76rem] uppercase tracking-[0.14em] text-[var(--muted)]">Add Proxy</span>
-                <h2 className="text-[1.7rem] font-medium leading-none tracking-[-0.04em] text-[var(--text)]">Create new proxy</h2>
-                <p className="text-sm text-[var(--muted)]">Add a new upstream target to the pool.</p>
+                <span className="text-[0.76rem] uppercase tracking-[0.14em] text-muted">
+                  {editingProxy ? "Edit Proxy" : "Add Proxy"}
+                </span>
+                <h2 className="text-[1.7rem] font-medium leading-none tracking-[-0.04em] text-(--text)">
+                  {editingProxy ? "Update proxy" : "Create new proxy"}
+                </h2>
+                <p className="text-sm text-muted">
+                  {editingProxy
+                    ? "Modify the upstream target configuration."
+                    : "Add a new upstream target to the pool."}
+                </p>
               </div>
-              <button className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-white/8 bg-[var(--bg-input)] text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]" onClick={closeCreatePanel} type="button">
+              <DashboardAction
+                iconOnly
+                onClick={closeCreatePanel}
+                variant="standard"
+              >
                 <X size={16} weight="bold" />
-              </button>
+              </DashboardAction>
             </div>
 
             <form
               className="grid gap-4 overflow-y-auto px-5 py-5"
+              key={editingProxy?.id ?? "create"}
               onSubmit={handleCreateProxy}
-              ref={createFormRef}
+              ref={panelFormRef}
             >
               <div className="grid gap-2">
-                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]">Scheme</span>
+                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-muted">
+                  Scheme
+                </span>
                 <DashboardSelect
-                  defaultValue="http"
+                  defaultValue={editingProxy?.scheme ?? "http"}
                   name="scheme"
                   options={[
                     { value: "http", label: "HTTP" },
@@ -715,37 +513,89 @@ export function ProxiesWorkspace({
                 />
               </div>
               <div className="grid gap-2">
-                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]">Host</span>
-                <DashboardInput name="host" placeholder="77.104.76.230" required />
+                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-muted">
+                  Host
+                </span>
+                <DashboardInput
+                  defaultValue={editingProxy?.host ?? ""}
+                  name="host"
+                  placeholder="77.104.76.230"
+                  required
+                />
+                <span className="text-[0.74rem] text-muted">
+                  Use host only. Enter the port in the port field.
+                </span>
               </div>
               <div className="grid gap-2">
-                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]">Port</span>
-                <DashboardInput name="port" type="number" min="1" max="65535" placeholder="8080" required />
+                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-muted">
+                  Port
+                </span>
+                <DashboardInput
+                  defaultValue={
+                    editingProxy?.port ? String(editingProxy.port) : ""
+                  }
+                  name="port"
+                  type="number"
+                  min="1"
+                  max="65535"
+                  placeholder="8080"
+                  required
+                />
               </div>
               <div className="grid gap-2">
-                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]">Username</span>
-                <DashboardInput name="username" placeholder="optional" />
+                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-muted">
+                  Username
+                </span>
+                <DashboardInput
+                  defaultValue={editingProxy?.username ?? ""}
+                  name="username"
+                  placeholder="optional"
+                />
               </div>
               <div className="grid gap-2">
-                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]">Password</span>
-                <DashboardInput name="password" placeholder="optional" type="password" />
+                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-muted">
+                  Password
+                </span>
+                <DashboardInput
+                  name="password"
+                  placeholder="optional"
+                  type="password"
+                />
               </div>
               <div className="grid gap-2">
-                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-[var(--muted)]">Tags</span>
-                <DashboardInput name="tags" placeholder="residential, eu, premium" />
+                <span className="text-[0.78rem] uppercase tracking-[0.08em] text-muted">
+                  Tags
+                </span>
+                <DashboardInput
+                  defaultValue={editingProxy?.tags.join(", ") ?? ""}
+                  name="tags"
+                  placeholder="residential, eu, premium"
+                />
               </div>
-              <div className="mt-2 flex items-center justify-end gap-2 border-t border-white/8 pt-4">
-                <button className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[var(--bg-input)] px-3.5 text-sm text-[var(--muted-strong)] transition hover:border-[var(--line-strong)] hover:bg-[#222]" onClick={closeCreatePanel} type="button">
+              {editingProxy ? (
+                <p className="text-[0.76rem] text-muted">
+                  Updating a proxy resets its current health snapshot and puts
+                  it back into the unknown state.
+                </p>
+              ) : null}
+              <div className="mt-2 flex items-center justify-end gap-2 border-t border-(--line) pt-4">
+                <DashboardAction onClick={closeCreatePanel} variant="standard">
                   Cancel
-                </button>
-                <button
-                  className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/8 bg-[#d6d6d6] px-3.5 text-sm font-semibold text-[#111] transition hover:bg-[#f2f2f2] disabled:cursor-not-allowed disabled:opacity-60"
+                </DashboardAction>
+                <DashboardAction
                   disabled={isCreating}
+                  icon={<Plus size={15} weight="bold" />}
                   type="submit"
+                  variant="primary"
                 >
-                  <Plus size={15} weight="bold" />
-                  {isCreating ? "Creating..." : "Create Proxy"}
-                </button>
+                  {isCreating
+                    ? editingProxy
+                      ? "Saving..."
+                      : "Creating..."
+                    : editingProxy
+                      ? "Save Changes"
+                      : "Create Proxy"}
+                </DashboardAction>
               </div>
             </form>
           </aside>

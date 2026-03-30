@@ -39,6 +39,7 @@ if ! docker compose ps db | grep -q "healthy"; then
 fi
 
 declare -a PIDS=()
+declare -a PID_NAMES=()
 
 cleanup() {
   local exit_code=$?
@@ -67,13 +68,91 @@ run_service() {
     2> >(sed -u "s/^/[$name] /" >&2) &
 
   PIDS+=("$!")
+  PID_NAMES+=("$name")
+}
+
+wait_for_http() {
+  local name="$1"
+  local url="$2"
+  local attempts="${3:-30}"
+
+  for _ in $(seq 1 "$attempts"); do
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  echo "$name did not become ready at $url in time." >&2
+  return 1
+}
+
+wait_for_process_start() {
+  local name="$1"
+  local pid="$2"
+  local seconds="${3:-2}"
+
+  sleep "$seconds"
+
+  if ! kill -0 "$pid" >/dev/null 2>&1; then
+    wait "$pid"
+    return $?
+  fi
+
+  echo "$name started (pid $pid)."
+}
+
+start_service() {
+  local name="$1"
+  local readiness_kind="$2"
+  local readiness_target="${3:-}"
+  local readiness_attempts="${4:-30}"
+  local pid
+
+  shift 4
+
+  echo "Starting $name..."
+  run_service "$name" "$@"
+  pid="${PIDS[${#PIDS[@]}-1]}"
+
+  case "$readiness_kind" in
+    http)
+      wait_for_http "$name" "$readiness_target" "$readiness_attempts"
+      ;;
+    process)
+      wait_for_process_start "$name" "$pid" "${readiness_target:-2}"
+      ;;
+    *)
+      echo "Unknown readiness kind for $name: $readiness_kind" >&2
+      return 1
+      ;;
+  esac
+}
+
+wait_for_any() {
+  if help wait 2>/dev/null | grep -q -- "-n"; then
+    wait -n "${PIDS[@]}"
+    return $?
+  fi
+
+  while true; do
+    for pid in "${PIDS[@]}"; do
+      if ! kill -0 "$pid" >/dev/null 2>&1; then
+        wait "$pid"
+        return $?
+      fi
+    done
+
+    sleep 1
+  done
 }
 
 echo "Starting local development services..."
-run_service "core-api" cargo run -p core-api
-run_service "proxy-server" cargo run -p proxy-server
-run_service "worker" cargo run -p worker
-run_service "dashboard" pnpm --filter dashboard dev
+start_service "core-api" "http" "http://127.0.0.1:${CORE_API_PORT}/api/health/summary" "60" cargo run -p core-api
+start_service "worker" "process" "2" "0" cargo run -p worker
+start_service "proxy-server" "http" "http://127.0.0.1:${PROXY_SERVER_PORT}/health" "60" cargo run -p proxy-server
+start_service "dashboard" "http" "http://127.0.0.1:3000/proxies" "60" pnpm --filter dashboard dev
 
 echo
 echo "Local dev stack is starting:"
@@ -84,4 +163,4 @@ echo "  PostgreSQL:   localhost:5432"
 echo
 echo "Press Ctrl+C to stop local processes. The database container will keep running."
 
-wait -n "${PIDS[@]}"
+wait_for_any

@@ -6,13 +6,13 @@
 }
 
 :root {
-  --bg: #090909;
-  --bg-elevated: #101010;
-  --bg-panel: #151515;
-  --bg-panel-soft: #1a1a1a;
-  --bg-input: #1b1b1b;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
+  --bg: #101217;
+  --bg-elevated: #101217;
+  --bg-panel: #101217;
+  --bg-panel-soft: #101217;
+  --bg-input: #25262e;
+  --line: #2e2f36;
+  --line-strong: #2e2f36;
   --text: #f3f3f3;
   --muted: #9b9b9b;
   --muted-strong: #c6c6c6;
@@ -55,4 +55,11 @@ select {
 input:disabled,
 button:disabled {
   cursor: not-allowed;
+}
+
+nextjs-portal,
+[data-next-badge-root],
+[data-next-mark],
+[data-nextjs-toast] {
+  display: none !important;
 }

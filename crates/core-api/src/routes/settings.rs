@@ -1,22 +1,35 @@
-use axum::{routing::get, Json, Router};
+use axum::{extract::State, routing::get, Json, Router};
+use infrastructure::db::postgres::StoredSettings;
 
-use crate::{app_state::AppState, dto::SettingsResponse};
+use crate::{
+    app_state::AppState,
+    dto::{SettingsResponse, UpdateSettingsRequest},
+};
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/", get(get_settings))
+    Router::new().route("/", get(get_settings).patch(update_settings))
 }
 
-async fn get_settings() -> Json<SettingsResponse> {
-    Json(SettingsResponse {
-        routing_strategy: "round_robin",
-        pool_label: "primary-rotation",
-        max_retries: 2,
-        selection_timeout_ms: 2_000,
-        health_interval_secs: 30,
-        cooldown_secs: 120,
-        timeout_ms: 5_000,
-        concurrency: 32,
-        failure_threshold: 3,
-        recovery_threshold: 2,
-    })
+async fn get_settings(State(state): State<AppState>) -> Json<SettingsResponse> {
+    Json(state.settings.read().await.clone())
+}
+
+async fn update_settings(
+    State(state): State<AppState>,
+    Json(payload): Json<UpdateSettingsRequest>,
+) -> Result<Json<SettingsResponse>, crate::routes::proxies::ApiError> {
+    let stored: StoredSettings = payload.into();
+
+    if let Some(repository) = state.settings_repository.clone() {
+        repository
+            .save(&stored)
+            .await
+            .map_err(|error| application::errors::ApplicationError::Repository(error.to_string()))
+            .map_err(crate::routes::proxies::ApiError::from)?;
+    }
+
+    let mut settings = state.settings.write().await;
+    *settings = stored.into();
+
+    Ok(Json(settings.clone()))
 }

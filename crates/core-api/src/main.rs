@@ -5,7 +5,10 @@ mod routes;
 use std::{env, net::SocketAddr};
 
 use app_state::AppState;
-use axum::{http::{header, HeaderValue, Method}, Router};
+use axum::{
+    http::{header, HeaderValue, Method},
+    Router,
+};
 use tower_http::cors::{Any, CorsLayer};
 
 fn build_app(state: AppState) -> Router {

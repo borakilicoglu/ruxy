@@ -1,14 +1,20 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use application::{errors::ApplicationError, ports::ProxyRepository};
 use domain::proxy::{Proxy, ProxyScheme, ProxyStatus};
 use infrastructure::repositories::{
     in_memory_proxy_repository::InMemoryProxyRepository,
     postgres_proxy_repository::PostgresProxyRepository,
+    postgres_settings_repository::PostgresSettingsRepository,
 };
-use infrastructure::db::postgres::initialize_database;
+use infrastructure::db::postgres::{default_settings, initialize_database};
 use infrastructure::telemetry::postgres_telemetry_repository::PostgresTelemetryRepository;
 use sqlx::PgPool;
+use tokio::sync::RwLock;
 use uuid::Uuid;
+
+use crate::dto::SettingsResponse;
 
 #[derive(Clone)]
 pub enum AppRepository {
@@ -85,6 +91,8 @@ impl ProxyRepository for AppRepository {
 pub struct AppState {
     pub proxy_repository: AppRepository,
     pub telemetry_repository: Option<PostgresTelemetryRepository>,
+    pub settings: Arc<RwLock<SettingsResponse>>,
+    pub settings_repository: Option<PostgresSettingsRepository>,
 }
 
 impl AppState {
@@ -92,6 +100,8 @@ impl AppState {
         Self {
             proxy_repository: AppRepository::InMemory(InMemoryProxyRepository::new()),
             telemetry_repository: None,
+            settings: Arc::new(RwLock::new(default_settings().into())),
+            settings_repository: None,
         }
     }
 
@@ -99,10 +109,14 @@ impl AppState {
         if let Some(database_url) = database_url {
             let pool = PgPool::connect(database_url).await?;
             initialize_database(&pool).await?;
+            let settings_repository = PostgresSettingsRepository::new(pool.clone());
+            let settings = settings_repository.load().await?;
 
             return Ok(Self {
                 proxy_repository: AppRepository::Postgres(PostgresProxyRepository::new(pool.clone())),
                 telemetry_repository: Some(PostgresTelemetryRepository::new(pool.clone())),
+                settings: Arc::new(RwLock::new(settings.into())),
+                settings_repository: Some(settings_repository),
             });
         }
 

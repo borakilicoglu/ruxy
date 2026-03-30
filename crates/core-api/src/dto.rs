@@ -1,5 +1,6 @@
 use application::errors::ApplicationError;
 use domain::proxy::{HealthCheckResult, NewProxy, Proxy, ProxyScheme, ProxyStatus};
+use infrastructure::db::postgres::StoredSettings;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -82,10 +83,10 @@ pub struct EventResponse {
     pub timestamp: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SettingsResponse {
-    pub routing_strategy: &'static str,
-    pub pool_label: &'static str,
+    pub routing_strategy: String,
+    pub pool_label: String,
     pub max_retries: u32,
     pub selection_timeout_ms: u64,
     pub health_interval_secs: u64,
@@ -94,6 +95,36 @@ pub struct SettingsResponse {
     pub concurrency: u32,
     pub failure_threshold: u32,
     pub recovery_threshold: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSettingsRequest {
+    pub routing_strategy: String,
+    pub pool_label: String,
+    pub max_retries: u32,
+    pub selection_timeout_ms: u64,
+    pub health_interval_secs: u64,
+    pub cooldown_secs: u64,
+    pub timeout_ms: u64,
+    pub concurrency: u32,
+    pub failure_threshold: u32,
+    pub recovery_threshold: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HealthCheckListResponse {
+    pub items: Vec<HealthCheckResponse>,
+    pub total: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HealthCheckResponse {
+    pub proxy_id: Uuid,
+    pub success: bool,
+    pub latency_ms: Option<u32>,
+    pub http_status: Option<u16>,
+    pub error_kind: Option<String>,
+    pub checked_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -117,6 +148,16 @@ pub struct ProxyResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateProxyRequest {
+    pub scheme: String,
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateProxyRequest {
     pub scheme: String,
     pub host: String,
     pub port: u16,
@@ -149,6 +190,24 @@ impl TryFrom<CreateProxyRequest> for NewProxy {
     type Error = ErrorResponse;
 
     fn try_from(value: CreateProxyRequest) -> Result<Self, Self::Error> {
+        let scheme = parse_scheme(&value.scheme)?;
+        let host = parse_host(&value.host)?;
+
+        Ok(Self {
+            scheme,
+            host,
+            port: value.port,
+            username: value.username,
+            password: value.password,
+            tags: value.tags,
+        })
+    }
+}
+
+impl TryFrom<UpdateProxyRequest> for NewProxy {
+    type Error = ErrorResponse;
+
+    fn try_from(value: UpdateProxyRequest) -> Result<Self, Self::Error> {
         let scheme = parse_scheme(&value.scheme)?;
         let host = parse_host(&value.host)?;
 
@@ -245,6 +304,40 @@ impl From<ApplicationError> for ErrorResponse {
                     message: value.to_string(),
                 },
             },
+        }
+    }
+}
+
+impl From<StoredSettings> for SettingsResponse {
+    fn from(value: StoredSettings) -> Self {
+        Self {
+            routing_strategy: value.routing_strategy,
+            pool_label: value.pool_label,
+            max_retries: value.max_retries,
+            selection_timeout_ms: value.selection_timeout_ms,
+            health_interval_secs: value.health_interval_secs,
+            cooldown_secs: value.cooldown_secs,
+            timeout_ms: value.timeout_ms,
+            concurrency: value.concurrency,
+            failure_threshold: value.failure_threshold,
+            recovery_threshold: value.recovery_threshold,
+        }
+    }
+}
+
+impl From<UpdateSettingsRequest> for StoredSettings {
+    fn from(value: UpdateSettingsRequest) -> Self {
+        Self {
+            routing_strategy: value.routing_strategy,
+            pool_label: value.pool_label,
+            max_retries: value.max_retries,
+            selection_timeout_ms: value.selection_timeout_ms,
+            health_interval_secs: value.health_interval_secs,
+            cooldown_secs: value.cooldown_secs,
+            timeout_ms: value.timeout_ms,
+            concurrency: value.concurrency,
+            failure_threshold: value.failure_threshold,
+            recovery_threshold: value.recovery_threshold,
         }
     }
 }

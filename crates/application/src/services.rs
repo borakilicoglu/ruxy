@@ -63,6 +63,54 @@ where
         self.repository.insert(proxy).await
     }
 
+    pub async fn update_proxy(
+        &self,
+        id: Uuid,
+        new_proxy: NewProxy,
+        now: DateTime<Utc>,
+    ) -> Result<Proxy, ApplicationError> {
+        let mut proxy = self
+            .repository
+            .get(id)
+            .await?
+            .ok_or(ApplicationError::ProxyNotFound(id))?;
+
+        let duplicate = self
+            .repository
+            .list()
+            .await?
+            .into_iter()
+            .any(|item| {
+                item.id != id
+                    && item.scheme == new_proxy.scheme
+                    && item.host == new_proxy.host
+                    && item.port == new_proxy.port
+                    && item.username == new_proxy.username
+            });
+
+        if duplicate {
+            return Err(ApplicationError::DuplicateProxy);
+        }
+
+        proxy.scheme = new_proxy.scheme;
+        proxy.host = new_proxy.host;
+        proxy.port = new_proxy.port;
+        proxy.username = new_proxy.username;
+        proxy.password = new_proxy.password;
+        proxy.tags = new_proxy.tags;
+        proxy.status = domain::proxy::ProxyStatus::Unknown;
+        proxy.score = 0;
+        proxy.avg_latency_ms = None;
+        proxy.success_rate = None;
+        proxy.consecutive_failures = 0;
+        proxy.consecutive_successes = 0;
+        proxy.last_checked_at = None;
+        proxy.cooldown_until = None;
+        proxy.updated_at = now;
+
+        self.repository.update(proxy).await
+    }
+
     pub async fn delete_proxy(&self, id: Uuid) -> Result<(), ApplicationError> {
         if !self.repository.exists(id).await? {
             return Err(ApplicationError::ProxyNotFound(id));

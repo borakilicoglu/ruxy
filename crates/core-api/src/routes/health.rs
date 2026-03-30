@@ -4,12 +4,14 @@ use domain::proxy::ProxyStatus;
 
 use crate::{
     app_state::AppState,
-    dto::HealthSummaryResponse,
+    dto::{HealthCheckListResponse, HealthCheckResponse, HealthSummaryResponse},
     routes::proxies::ApiError,
 };
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/summary", get(get_health_summary))
+    Router::new()
+        .route("/summary", get(get_health_summary))
+        .route("/checks", get(list_health_checks))
 }
 
 async fn get_health_summary(
@@ -40,6 +42,40 @@ async fn get_health_summary(
     }
 
     Ok(Json(summary))
+}
+
+async fn list_health_checks(
+    State(state): State<AppState>,
+) -> Result<Json<HealthCheckListResponse>, ApiError> {
+    let service = ProxyPoolService::new(state.proxy_repository);
+    let proxies = service.list_proxies().await?;
+
+    let items = proxies
+        .into_iter()
+        .filter_map(|proxy| {
+            proxy.last_checked_at.map(|checked_at| {
+                let success = matches!(proxy.status, ProxyStatus::Healthy | ProxyStatus::Degraded);
+                let error_kind = if success {
+                    None
+                } else {
+                    Some("health_check_failed".to_string())
+                };
+
+                HealthCheckResponse {
+                    proxy_id: proxy.id,
+                    success,
+                    latency_ms: proxy.avg_latency_ms,
+                    http_status: success.then_some(200),
+                    error_kind,
+                    checked_at: checked_at.to_rfc3339(),
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let total = items.len();
+
+    Ok(Json(HealthCheckListResponse { items, total }))
 }
 
 #[cfg(test)]

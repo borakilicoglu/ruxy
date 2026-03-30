@@ -61,3 +61,18 @@ create index if not exists idx_proxy_events_created_at
 
 create index if not exists idx_proxy_events_proxy_id
     on proxy_events (proxy_id, created_at desc);
+
+create table if not exists app_settings (
+    singleton boolean primary key default true check (singleton),
+    routing_strategy text not null,
+    pool_label text not null,
+    max_retries integer not null,
+    selection_timeout_ms bigint not null,
+    health_interval_secs bigint not null,
+    cooldown_secs bigint not null,
+    timeout_ms bigint not null,
+    concurrency integer not null,
+    failure_threshold integer not null,
+    recovery_threshold integer not null,
+    updated_at timestamptz not null default now()
+);

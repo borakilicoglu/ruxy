@@ -49,7 +49,7 @@ export async function createProxyAction(formData: FormData) {
   });
 
   revalidatePath("/");
-  revalidatePath("/health");
+  revalidatePath("/metrics");
   revalidatePath("/proxies");
 }
 
@@ -63,6 +63,6 @@ export async function deleteProxyAction(formData: FormData) {
   await deleteProxy(id);
 
   revalidatePath("/");
-  revalidatePath("/health");
+  revalidatePath("/metrics");
   revalidatePath("/proxies");
 }
